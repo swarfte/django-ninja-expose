@@ -170,25 +170,69 @@ print(requests.get(base, params={"completed": "true"}).json())
 requests.delete(f"{base}/{task['id']}")
 ```
 
-## `@expose(path=None, methods=None, fields=None, query=None)`
+## `@expose(path=None, methods=None, fields=None, query=None, auth=INHERIT)`
 
 `None` = automatic, `[]` = none, list = explicit restriction.
 
-| arg | `None` | `[]` | list |
-|---|---|---|---|
-| `path` | class name | n/a | URL path |
-| `methods` | all six (`HEAD` is never implied) | no operations | only these |
-| `fields` | all concrete fields + M2M | no fields | only these |
-| `query` | all exposed fields | filtering disabled | only these (subset of `fields`) |
+| arg         | `None`                            | `[]`             | list                              |
+| ----------- | ----------------------------------- | ------------------ | --------------------------------- |
+| `path`    | class name                          | n/a                | URL path                          |
+| `methods` | all six (`HEAD` is never implied) | no operations      | only these                        |
+| `fields`  | all concrete fields + M2M           | no fields          | only these                        |
+| `query`   | all exposed fields                  | filtering disabled | only these (subset of `fields`) |
+
+`auth` is separate: see [Authentication](#authentication).
 
 Invalid configuration fails at import time (`ExposeConfigurationError` and subclasses);
 duplicate paths fail when the router is built.
 
+## Authentication
+
+This library does not implement authentication. `auth` is passed straight to
+django-ninja, so you can use Ninja's built-in auth, Django's session auth, or your
+own.
+
+| `auth` value | behaviour |
+| --- | --- |
+| `INHERIT` (default) | use the auth of the `NinjaAPI` (or router) it is mounted on |
+| `None` | no authentication for this model, even if the API requires it |
+| an auth object / callable | use this auth for this model (e.g. `django_auth`, `HttpBearer()`) |
+| a list | any one of them may authenticate (same as Ninja) |
+
+```python
+from ninja import NinjaAPI
+from ninja.security import django_auth, HttpBearer
+from django_ninja_expose import INHERIT, expose, mount
+
+class Bearer(HttpBearer):
+    def authenticate(self, request, token):
+        if token == "secret":
+            return token
+
+@expose()                      # INHERIT: protected by the API-level auth below
+class Task(models.Model): ...
+
+@expose(auth=None)             # public, even though the API requires auth
+class Tag(models.Model): ...
+
+@expose(auth=Bearer())         # its own auth, overrides the API-level auth
+class Invoice(models.Model): ...
+
+@expose(auth=lambda request: request.user.is_staff or None)  # plain callable
+class Report(models.Model): ...
+
+api = NinjaAPI(auth=django_auth)
+mount(api)
+```
+
+An unauthenticated request to a protected endpoint returns `401 Unauthorized`.
+An invalid `auth` value raises `InvalidAuthError` at import time.
+
 ## Security warning
 
-`@expose()` exposes model data and CRUD operations by default, with no authentication.
-Explicitly restrict `methods`, `fields` and `query` for production APIs, and add auth
-on your `NinjaAPI`.
+`@expose()` exposes model data and CRUD operations by default. With `auth=INHERIT` it
+is only protected if your `NinjaAPI` (or router) has auth, so set `NinjaAPI(auth=...)`.
+Also restrict `methods`, `fields` and `query` for production APIs.
 
 ## Notes
 

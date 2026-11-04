@@ -112,6 +112,7 @@ def register_operations(
             func,
             operation_id=f"{prefix}_{name}",
             tags=[model.__name__],
+            auth=config.auth,  # INHERIT -> Ninja falls back to router/API auth
             **kwargs,
         )
 
