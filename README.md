@@ -27,6 +27,149 @@ urlpatterns = [path("api/", api.urls)]
 You get `GET/POST /api/Task`, `GET/PUT/PATCH/DELETE/HEAD /api/Task/{pk}`, Django-native
 filtering (`?title__icontains=x&completed=false`), Ninja pagination and OpenAPI docs.
 
+## Usage examples
+
+The examples below use the `Task` model above, served at `/api/Task`
+(`id` is the auto-generated primary key).
+
+### GET — list and retrieve
+
+List objects (paginated with Ninja's default `LimitOffsetPagination`):
+
+```http
+GET /api/Task
+```
+
+```json
+// 200 OK
+{
+  "items": [
+    {"id": 1, "title": "Write docs", "completed": false},
+    {"id": 2, "title": "Ship release", "completed": true}
+  ],
+  "count": 2
+}
+```
+
+Filter with Django lookups and paginate with `limit` / `offset`:
+
+```http
+GET /api/Task?title__icontains=docs&completed=false&limit=10&offset=0
+```
+
+```json
+// 200 OK
+{
+  "items": [{"id": 1, "title": "Write docs", "completed": false}],
+  "count": 1
+}
+```
+
+Retrieve a single object:
+
+```http
+GET /api/Task/1
+```
+
+```json
+// 200 OK
+{"id": 1, "title": "Write docs", "completed": false}
+```
+
+```json
+// 404 Not Found (GET /api/Task/999)
+{"detail": "Not Found"}
+```
+
+### POST — create
+
+```http
+POST /api/Task
+Content-Type: application/json
+
+{"title": "Write docs"}
+```
+
+```json
+// 201 Created
+{"id": 1, "title": "Write docs", "completed": false}
+```
+
+Invalid data is rejected by Django's `full_clean()`:
+
+```http
+POST /api/Task
+Content-Type: application/json
+
+{"title": ""}
+```
+
+```json
+// 422 Unprocessable Entity
+{
+  "detail": [
+    {"loc": ["body", "title"], "msg": "This field cannot be blank.", "type": "value_error"}
+  ]
+}
+```
+
+### PUT — full update
+
+`PUT` replaces the object: send every writable field (fields without a default are required).
+
+```http
+PUT /api/Task/1
+Content-Type: application/json
+
+{"title": "Write better docs", "completed": true}
+```
+
+```json
+// 200 OK
+{"id": 1, "title": "Write better docs", "completed": true}
+```
+
+### PATCH — partial update
+
+`PATCH` only changes the fields you send:
+
+```http
+PATCH /api/Task/1
+Content-Type: application/json
+
+{"completed": true}
+```
+
+```json
+// 200 OK
+{"id": 1, "title": "Write better docs", "completed": true}
+```
+
+### DELETE
+
+```http
+DELETE /api/Task/1
+```
+
+```
+204 No Content
+```
+
+Deleting it again returns `404 Not Found` with `{"detail": "Not Found"}`.
+
+### Calling the API from Python
+
+```python
+import requests
+
+base = "http://localhost:8000/api/Task"
+
+task = requests.post(base, json={"title": "Write docs"}).json()
+requests.patch(f"{base}/{task['id']}", json={"completed": True})
+print(requests.get(base, params={"completed": "true"}).json())
+requests.delete(f"{base}/{task['id']}")
+```
+
 ## `@expose(path=None, methods=None, fields=None, query=None)`
 
 `None` = automatic, `[]` = none, list = explicit restriction.
