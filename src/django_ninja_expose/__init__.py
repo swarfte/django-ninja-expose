@@ -7,6 +7,7 @@ from .exceptions import (
     InvalidFieldError,
     InvalidLookupError,
     InvalidQueryFieldError,
+    InvalidQuerysetError,
     UnsupportedMethodError,
 )
 
@@ -21,4 +22,5 @@ __all__ = [
     "InvalidFieldError",
     "InvalidQueryFieldError",
     "InvalidLookupError",
+    "InvalidQuerysetError",
 ]

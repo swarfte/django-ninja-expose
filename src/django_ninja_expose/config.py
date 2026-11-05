@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any
+
+from django.db.models import QuerySet
+from django.http import HttpRequest
 
 from ninja.constants import NOT_SET
 
@@ -27,3 +31,5 @@ class ExposureConfig:
     fields: tuple[str, ...]
     query: tuple[str, ...]
     auth: Any = INHERIT
+    #: ``(request, qs) -> qs`` - object-level authorization; scopes every operation.
+    queryset: Callable[[HttpRequest, QuerySet], QuerySet] | None = None

@@ -21,5 +21,9 @@ class InvalidAuthError(ExposeConfigurationError):
     """``auth`` is neither ``INHERIT``, ``None`` nor a callable / list of callables."""
 
 
+class InvalidQuerysetError(ExposeConfigurationError):
+    """``queryset`` is not a callable ``(request, qs) -> qs``."""
+
+
 class InvalidLookupError(Exception):
     """A request used an invalid filter field or lookup (mapped to HTTP 400)."""

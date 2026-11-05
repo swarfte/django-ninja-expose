@@ -93,14 +93,15 @@ def register_operations(
     reserved = _reserved_params()
     Read, pk_type = schemas.read, schemas.pk_type
 
-    def queryset() -> models.QuerySet:
-        return model._default_manager.all()
+    def queryset(request: HttpRequest) -> models.QuerySet:
+        qs = model._default_manager.all()
+        return config.queryset(request, qs) if config.queryset else qs
 
     def filtered(request: HttpRequest) -> models.QuerySet:
         params = {k: request.GET[k] for k in request.GET}
         try:
             filters = build_filters(model, config.query, params, reserved)
-            return apply_filters(queryset(), filters)
+            return apply_filters(queryset(request), filters)
         except InvalidLookupError as exc:
             raise HttpError(400, str(exc)) from exc
 
@@ -124,7 +125,7 @@ def register_operations(
         add(collection, "GET", paginate()(list_view), "list", response=list[Read])
 
         def get_view(request: HttpRequest, pk):
-            return get_object_or_404(queryset(), pk=pk)
+            return get_object_or_404(queryset(request), pk=pk)
 
         get_view.__annotations__ = {"pk": pk_type}
         add(detail, "GET", get_view, "get", response=Read)
@@ -132,7 +133,13 @@ def register_operations(
     if "POST" in methods:
 
         def create_view(request: HttpRequest, payload):
-            return Status(201, _save(model, model(), payload.model_dump()))
+            with transaction.atomic():
+                obj = _save(model, model(), payload.model_dump())
+                # Can't pre-filter a row that doesn't exist yet: refuse (and roll
+                # back) if the new row falls outside what this user may access.
+                if config.queryset and not queryset(request).filter(pk=obj.pk).exists():
+                    raise HttpError(403, "Forbidden")
+            return Status(201, obj)
 
         create_view.__annotations__ = {"payload": schemas.create}
         add(collection, "POST", create_view, "create", response={201: Read})
@@ -140,7 +147,7 @@ def register_operations(
     if "PUT" in methods:
 
         def put_view(request: HttpRequest, pk, payload):
-            obj = get_object_or_404(queryset(), pk=pk)
+            obj = get_object_or_404(queryset(request), pk=pk)
             return _save(model, obj, payload.model_dump())
 
         put_view.__annotations__ = {"pk": pk_type, "payload": schemas.update}
@@ -149,7 +156,7 @@ def register_operations(
     if "PATCH" in methods:
 
         def patch_view(request: HttpRequest, pk, payload):
-            obj = get_object_or_404(queryset(), pk=pk)
+            obj = get_object_or_404(queryset(request), pk=pk)
             return _save(model, obj, payload.model_dump(exclude_unset=True))
 
         patch_view.__annotations__ = {"pk": pk_type, "payload": schemas.patch}
@@ -158,7 +165,7 @@ def register_operations(
     if "DELETE" in methods:
 
         def delete_view(request: HttpRequest, pk):
-            get_object_or_404(queryset(), pk=pk).delete()
+            get_object_or_404(queryset(request), pk=pk).delete()
             return Status(204, None)
 
         delete_view.__annotations__ = {"pk": pk_type}
@@ -173,7 +180,7 @@ def register_operations(
         add(collection, "HEAD", head_list_view, "head_list")
 
         def head_detail_view(request: HttpRequest, pk):
-            get_object_or_404(queryset(), pk=pk)
+            get_object_or_404(queryset(request), pk=pk)
             return HttpResponse(status=200)
 
         head_detail_view.__annotations__ = {"pk": pk_type}

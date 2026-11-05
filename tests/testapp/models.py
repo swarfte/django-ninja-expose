@@ -38,3 +38,10 @@ class Document(models.Model):
 class Memo(models.Model):
     title = models.CharField(max_length=50)
     secret = models.CharField(max_length=50, default="x")
+
+
+class Note(models.Model):
+    """Not exposed globally; tests expose it with an owner-scoped queryset."""
+
+    owner = models.CharField(max_length=50)
+    text = models.CharField(max_length=50, default="")

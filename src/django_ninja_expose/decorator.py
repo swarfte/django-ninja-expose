@@ -14,6 +14,7 @@ from .exceptions import (
     InvalidAuthError,
     InvalidFieldError,
     InvalidQueryFieldError,
+    InvalidQuerysetError,
     UnsupportedMethodError,
 )
 from .introspection import get_eligible_fields
@@ -28,6 +29,7 @@ def _resolve(
     fields: Iterable[str] | None,
     query: Iterable[str] | None,
     auth: Any = INHERIT,
+    queryset: Any = None,
 ) -> ExposureConfig:
     if path is not None and (not isinstance(path, str) or not path.strip("/")):
         raise ExposeConfigurationError(f"Invalid path {path!r} for {model.__name__}.")
@@ -68,8 +70,19 @@ def _resolve(
                     f"Query field '{name}' of {model.__name__} is not in the exposed fields."
                 )
 
+    if queryset is not None and not callable(queryset):
+        raise InvalidQuerysetError(
+            f"Invalid queryset {queryset!r} for {model.__name__}: "
+            "use a callable (request, qs) -> qs."
+        )
+
     return ExposureConfig(
-        resolved_path, resolved_methods, resolved_fields, resolved_query, _check_auth(model, auth)
+        resolved_path,
+        resolved_methods,
+        resolved_fields,
+        resolved_query,
+        _check_auth(model, auth),
+        queryset,
     )
 
 
@@ -92,17 +105,20 @@ def expose(
     fields: Iterable[str] | None = None,
     query: Iterable[str] | None = None,
     auth: Any = INHERIT,
+    queryset: Any = None,
 ):
     """Expose a Django model as a REST API.
 
     ``None`` means automatic, ``[]`` means none, a list means explicit restriction.
     ``auth`` is ``INHERIT`` (default: use the ``NinjaAPI``/router auth), ``None``
     (disable auth for this model) or any Ninja auth (``django_auth``, ``HttpBearer()``,
-    a callable, or a list of them). The model class is returned unchanged.
+    a callable, or a list of them). ``queryset`` is an optional
+    ``(request, qs) -> qs`` callable for object-level authorization: every read, update and
+    delete (and filtering/pagination) only sees the rows it returns. The model class is returned unchanged.
     """
 
     def decorator(model: M) -> M:
-        registry.register(model, _resolve(model, path, methods, fields, query, auth))
+        registry.register(model, _resolve(model, path, methods, fields, query, auth, queryset))
         return model
 
     return decorator
