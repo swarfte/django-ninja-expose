@@ -27,6 +27,9 @@ urlpatterns = [path("api/", api.urls)]
 You get `GET/POST /api/Task`, `GET/PUT/PATCH/DELETE/HEAD /api/Task/{pk}`, Django-native
 filtering (`?title__icontains=x&completed=false`), Ninja pagination and OpenAPI docs.
 
+![1793847402893](image/README/1793847402893.png)
+
+
 ## Usage examples
 
 The examples below use the `Task` model above, served at `/api/Task`
@@ -193,12 +196,12 @@ This library does not implement authentication. `auth` is passed straight to
 django-ninja, so you can use Ninja's built-in auth, Django's session auth, or your
 own.
 
-| `auth` value | behaviour |
-| --- | --- |
-| `INHERIT` (default) | use the auth of the `NinjaAPI` (or router) it is mounted on |
-| `None` | no authentication for this model, even if the API requires it |
+| `auth` value            | behaviour                                                             |
+| ------------------------- | --------------------------------------------------------------------- |
+| `INHERIT` (default)     | use the auth of the `NinjaAPI` (or router) it is mounted on         |
+| `None`                  | no authentication for this model, even if the API requires it         |
 | an auth object / callable | use this auth for this model (e.g. `django_auth`, `HttpBearer()`) |
-| a list | any one of them may authenticate (same as Ninja) |
+| a list                    | any one of them may authenticate (same as Ninja)                      |
 
 ```python
 from ninja import NinjaAPI
