@@ -222,3 +222,5 @@ __marimo__/
 release/
 staticfiles/
 staticroot/
+
+spec.md

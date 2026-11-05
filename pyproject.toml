@@ -1,6 +1,6 @@
 [project]
 name = "django-ninja-expose"
-version = "0.1.1"
+version = "0.1.2"
 description = "Add @expose() to a Django model. Get a REST API, powered by Django Ninja."
 readme = "README.md"
 authors = [
